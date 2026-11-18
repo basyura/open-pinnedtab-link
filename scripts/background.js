@@ -27,8 +27,7 @@ async function migrate() {
         tabs[tab.id] = {enabled: state.enabled, external_link_only: state.external_link_only};
       }
     }
-    await chrome.storage.session.set(tabs);
-    await chrome.storage.local.set({...settings, migrated: true});
+    await chrome.storage.local.set({...tabs, ...settings, migrated: true});
   } finally {
     await chrome.offscreen.closeDocument();
   }
@@ -53,19 +52,24 @@ async function apply(tab, state) {
   }
 }
 
+async function storedTabs() {
+  const data = await chrome.storage.local.get(null);
+  return Object.fromEntries(Object.entries(data).filter(([key]) => /^\d+$/.test(key)));
+}
+
 async function tabState(tab, settings) {
   const key = String(tab.id);
-  const saved = (await chrome.storage.session.get(key))[key];
+  const saved = (await chrome.storage.local.get(key))[key];
   if (!tab.pinned) {
     if (saved) {
-      await chrome.storage.session.remove(key);
+      await chrome.storage.local.remove(key);
       if (saved.enabled) await apply(tab, {enabled: false, external_link_only: false});
     }
     return;
   }
   if (saved) return saved;
   const state = {enabled: settings.opts_enabled_default, external_link_only: settings.opts_external_link_only_default};
-  await chrome.storage.session.set({[key]: state});
+  await chrome.storage.local.set({[key]: state});
   return state;
 }
 
@@ -121,8 +125,21 @@ async function syncPinned() {
   await syncMenus();
 }
 
-chrome.runtime.onInstalled.addListener(() => { run(syncPinned); });
-chrome.runtime.onStartup.addListener(() => { run(syncPinned); });
+chrome.runtime.onInstalled.addListener(() => {
+  run(async () => {
+    const pinned = new Set((await chrome.tabs.query({pinned: true})).map(tab => String(tab.id)));
+    const stale = Object.keys(await storedTabs()).filter(key => !pinned.has(key));
+    await chrome.storage.local.remove(stale);
+    await syncPinned();
+  });
+});
+chrome.runtime.onStartup.addListener(() => {
+  run(async () => {
+    // Tab IDs are only valid within one browser session.
+    await chrome.storage.local.remove(Object.keys(await storedTabs()));
+    await syncPinned();
+  });
+});
 chrome.tabs.onUpdated.addListener((id, change, tab) => {
   if (change.pinned === undefined && change.url === undefined && change.status !== "complete") return;
   run(async () => {
@@ -132,13 +149,13 @@ chrome.tabs.onUpdated.addListener((id, change, tab) => {
 });
 chrome.tabs.onActivated.addListener(() => { run(syncMenus); });
 chrome.windows.onFocusChanged.addListener(() => { run(syncMenus); });
-chrome.tabs.onRemoved.addListener(id => { run(() => chrome.storage.session.remove(String(id))); });
+chrome.tabs.onRemoved.addListener(id => { run(() => chrome.storage.local.remove(String(id))); });
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (!tab?.pinned || !Object.hasOwn(menus, info.menuItemId)) return;
   run(async () => {
     const state = await tabState(tab, await chrome.storage.local.get(defaults));
     state[info.menuItemId] = info.checked;
-    await chrome.storage.session.set({[tab.id]: state});
+    await chrome.storage.local.set({[tab.id]: state});
     if (state.enabled || info.menuItemId === "enabled") await apply(tab, state);
     await syncMenus();
   });
@@ -157,11 +174,11 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
       await syncMenus();
     }
     if (message.action === "clear") {
-      await chrome.storage.session.clear();
+      await chrome.storage.local.remove(Object.keys(await storedTabs()));
       await chrome.storage.local.set(defaults);
       await syncPinned();
     }
-    return {settings: await chrome.storage.local.get(defaults), tabs: await chrome.storage.session.get(null)};
+    return {settings: await chrome.storage.local.get(defaults), tabs: await storedTabs()};
   }).then(reply, error => reply({error: error.message}));
   return true;
 });
