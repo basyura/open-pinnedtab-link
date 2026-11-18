@@ -1,7 +1,7 @@
 {
-  "manifest_version": 2,
+  "manifest_version": 3,
   "name": "Open PinnedTab Link",
-  "version": "2.2.11",
+  "version": "2.2.12",
   "description": "__MSG_manifest_desc__",
   "icons": {
     "16": "icons/16.png",
@@ -10,12 +10,20 @@
     "64": "icons/64.png",
     "128": "icons/128.png"
   },
-  "background": { 
-     "scripts": ["scripts/background.js"]
+  "background": {
+    "service_worker": "scripts/background.js"
   },
   "permissions": [
-      "contextMenus", "tabs", "http://*/*", "https://*/*"
+    "contextMenus",
+    "storage",
+    "scripting",
+    "offscreen"
   ],
   "options_page": "options.html",
-  "default_locale": "en"
+  "default_locale": "en",
+  "minimum_chrome_version": "123",
+  "host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ]
 }

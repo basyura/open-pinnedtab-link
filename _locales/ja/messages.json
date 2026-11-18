@@ -27,13 +27,13 @@
      "message": "リセット"
   },
   "localdata_table_title": {
-     "message": "ローカルストレージデータ"
+     "message": "保存データ"
   },
   "top_title": {
      "message": "Open PinnedTab Link設定ページ"
   },
   "localdata_note": {
-     "message": "このChrome機能拡張はHTML5で定義されているlocalStorage機能を使用しています。格納されている全データは次の通りです。もし削除する場合には、「全削除」ボタンを押してください。"
+     "message": "拡張機能の設定とタブごとの設定を表示します。「全削除」で初期設定に戻せます。"
   },
   "localdata_button_removeall": {
      "message": "全削除"

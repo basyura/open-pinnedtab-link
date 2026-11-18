@@ -27,13 +27,13 @@
      "message": "Reset"
   },
   "localdata_table_title": {
-     "message": "LocalStorage Data"
+     "message": "Stored Data"
   },
   "top_title": {
      "message": "Open PinnedTab Link Settings"
   },
   "localdata_note": {
-     "message": "This extension uses the localStorage function defined in HTML5. Following table shows the all data which is stored in the localStorage database. The 'Remove All' button below will remove all currently stored data. You may need to reload pinned tabs after resetting this data to ensure the proper settings are applied."
+     "message": "The table lists extension and tab settings. Select Remove All to reset them to their defaults."
   },
   "localdata_button_removeall": {
      "message": "Remove All"

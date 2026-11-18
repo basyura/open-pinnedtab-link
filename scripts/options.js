@@ -4,100 +4,35 @@
    *
    */
 
-function localdata_removeall() {
-  localStorage.clear();
-  location.reload(true);
-}
+const fields = {
+  opts_enabled_default: "enabled",
+  opts_external_link_only_default: "exclude_same_hostname",
+  opts_contextmenu_enabled_default: "contextmenu_enabled"
+};
 
-function localdata_showtable() {
-  var e = document.getElementById("localdata_table");
-  for(var i=0; i < localStorage.length; i++) {
-    var k = localStorage.key(i);
-    var v = localStorage.getItem(k);
-
-    var tr = document.createElement("tr");
-    // add background attribute each even line
-    if(i % 2 == 0) {
-      tr.setAttribute("style", "background:#e5ecf9");
-    }
-    var td1 = document.createElement("td");
-    var text1 = document.createTextNode(k);
-    td1.appendChild(text1);
-
-    var td2 = document.createElement("td");
-    var text2 = document.createTextNode(v);
-    td2.appendChild(text2);
-
-    tr.appendChild(td1);
-    tr.appendChild(td2);
-    e.appendChild(tr);
-  }
-}
-
-function restore_options() {
-  var opts_1 = localStorage.getItem("opts_enabled_default");
-  if(opts_1 == undefined || opts_1 == "undefined") {
-    localStorage["opts_enabled_default"] = true;
-  }
-  var opts_2 = localStorage.getItem("opts_external_link_only_default");
-  if(opts_2 == undefined || opts_2 == "undefined") {
-    localStorage["opts_external_link_only_default"] = false;
-  }
-  var opts_3 = localStorage.getItem("opts_contextmenu_enabled_default");
-  if(opts_3 == undefined || opts_3 == "undefined") {
-    localStorage["opts_contextmenu_enabled_default"] = true;
-  }
-
-  var input_enabled = document.getElementsByName("enabled");
-  for(var i in input_enabled) {
-    var c = input_enabled[i];
-    if(c.value == (""+localStorage["opts_enabled_default"])) {
-      c.checked = true;
+async function refresh(action, settings) {
+  const data = await chrome.runtime.sendMessage({action, settings});
+  if (data.error) throw new Error(data.error);
+  for (const [key, name] of Object.entries(fields)) {
+    for (const input of document.getElementsByName(name)) {
+      input.checked = input.value === String(data.settings[key]);
     }
   }
-
-  var input_exclude_same_hostname = document.getElementsByName("exclude_same_hostname");
-  for(var i in input_exclude_same_hostname) {
-    var c = input_exclude_same_hostname[i];
-    if(c.value == (""+localStorage["opts_external_link_only_default"])) {
-      c.checked = true;
-    }
-  }
-
-  var input_contextmenu_enabled = document.getElementsByName("contextmenu_enabled");
-  for(var i in input_contextmenu_enabled) {
-    var c = input_contextmenu_enabled[i];
-    if(c.value == (""+localStorage["opts_contextmenu_enabled_default"])) {
-      c.checked = true;
-    }
+  const table = document.getElementById("localdata_table");
+  while (table.rows.length > 1) table.deleteRow(1);
+  for (const [key, value] of Object.entries({...data.settings, ...data.tabs})) {
+    const row = table.insertRow();
+    row.insertCell().textContent = key;
+    row.insertCell().textContent = JSON.stringify(value);
   }
 }
 
 function save_options() {
-
-  var input_enabled = document.getElementsByName("enabled");
-  for(var i in input_enabled) {
-    var c = input_enabled[i];
-    if(c.checked == true) {
-      localStorage["opts_enabled_default"] = JSON.parse(c.value);
-    }
+  const settings = {};
+  for (const [key, name] of Object.entries(fields)) {
+    settings[key] = document.querySelector('input[name="' + name + '"]:checked').value === "true";
   }
-
-  var input_exclude_same_hostname = document.getElementsByName("exclude_same_hostname");
-  for(var i in input_exclude_same_hostname) {
-    var c = input_exclude_same_hostname[i];
-    if(c.checked == true) {
-      localStorage["opts_external_link_only_default"] = JSON.parse(c.value);
-    }
-  }
-
-  var input_contextmenu_enabled = document.getElementsByName("contextmenu_enabled");
-  for(var i in input_contextmenu_enabled) {
-    var c = input_contextmenu_enabled[i];
-    if(c.checked == true) {
-      localStorage["opts_contextmenu_enabled_default"] = JSON.parse(c.value);
-    }
-  }
+  return refresh("save", settings);
 }
 
 function set_text() {
@@ -109,20 +44,10 @@ function set_text() {
   }
 }
 
-// Add event listeners once the DOM has fully loaded by listening for the
-// `DOMContentLoaded` event on the document, and adding your listeners to
-// specific elements when it triggers.
-document.addEventListener(
-    'DOMContentLoaded',
-    function () {
-	// replacement of body.onload evnet
-        restore_options();
-        set_text();
-	localdata_showtable();
-
-	// add action on each button 
-	document.querySelector('#opts_button_reset').addEventListener('click', restore_options);
-	document.querySelector('#opts_button_save').addEventListener('click', save_options);
-	document.querySelector('#localdata_button_removeall').addEventListener('click', localdata_removeall);
-    }
-);
+document.addEventListener("DOMContentLoaded", async () => {
+  set_text();
+  await refresh("read");
+  document.querySelector("#opts_button_reset").addEventListener("click", () => refresh("read"));
+  document.querySelector("#opts_button_save").addEventListener("click", save_options);
+  document.querySelector("#localdata_button_removeall").addEventListener("click", () => refresh("clear"));
+});
